@@ -20,18 +20,7 @@ const { File } = require('megajs');
 const prefix = '.';
 
 const ownerNumber = ['94771820962'];
-
-if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
-  if (!config.SESSION_ID) return console.log('Please add your session to SESSION_ID env !!');
-  const sessdata = config.SESSION_ID;
-  const filer = File.fromURL(`https://mega.nz/file/${sessdata}`);
-  filer.download((err, data) => {
-    if (err) throw err;
-    fs.writeFile(__dirname + '/auth_info_baileys/creds.json', data, () => {
-      console.log("DINUWH MD V2 💚 Session downloaded ✅");
-    });
-  });
-}
+const events = require('./command'); // Commands එක load කරන්න
 
 const express = require("express");
 const app = express();
@@ -58,6 +47,14 @@ async function connectToWA() {
         connectToWA();
       }
     } else if (connection === 'open') {
+      console.log('DINUWH MD V2 💚 😼 Installing...');
+      const path = require('path');
+      fs.readdirSync("./plugins/").forEach((plugin) => {
+        if (path.extname(plugin).toLowerCase() == ".js") {
+          require("./plugins/" + plugin);
+        }
+      });
+      console.log('DINUWH MD V2 💚 Plugins installed successful ✅');
       console.log('DINUWH MD V2 💚 Bot connected to WhatsApp ✅');
       
       let up = `DINUWH MD V2 💚 Wa-BOT connected successful ✅\n\nPREFIX: ${prefix}`;
@@ -72,50 +69,64 @@ async function connectToWA() {
     if (!mek.message) return;
     mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message;
 
-    if (mek.key && mek.key.remoteJid === 'status@broadcast') {
-      if (config.AUTO_READ_STATUS === "true") {
-        await conn.readMessages([mek.key]);
+    const from = mek.key.remoteJid;
+    const type = getContentType(mek.message);
+    const body = type === 'conversation' ? mek.message.conversation : 
+                 type === 'extendedTextMessage' ? mek.message.extendedTextMessage.text : 
+                 type === 'imageMessage' ? mek.message.imageMessage.caption : 
+                 type === 'videoMessage' ? mek.message.videoMessage.caption : '';
+    
+    const isCmd = body.startsWith(prefix);
+    const command = isCmd ? body.slice(prefix.length).trim().split(' ')[0].toLowerCase() : '';
+    const args = body.trim().split(/ +/).slice(1);
+    const q = args.join(' ');
+    const isGroup = from.endsWith('@g.us');
+    const sender = mek.key.fromMe ? conn.user.id.split(':')[0] + '@s.whatsapp.net' : mek.key.participant || mek.key.remoteJid;
+    const senderNumber = sender.split('@')[0];
+    const botNumber = conn.user.id.split(':')[0];
+    const isOwner = ownerNumber.includes(senderNumber) || botNumber.includes(senderNumber);
 
-        const emojis = ['🧩', '🍉', '💜', '🌸', '🪴', '💊', '💫', '🍂', '🌟', '🎋', '😶‍🌫️', '🫀', '🧿', '👀', '🤖', '🚩', '🥰', '🗿', '💜', '💙', '🌝', '🖤', '💚'];
-        const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-        
-        await conn.sendMessage(mek.key.remoteJid, {    
-          react: {    
-            text: randomEmoji,    
-            key: mek.key,    
-          }    
-        }, { statusJidList: [mek.key.participant] });
+    const reply = (text) => {
+      conn.sendMessage(from, { text }, { quoted: mek });
+    };
+
+    // Auto status reader
+    if (mek.key.remoteJid === 'status@broadcast' && config.AUTO_READ_STATUS === "true") {
+      await conn.readMessages([mek.key]);
+
+      // Random emoji reaction
+      const emojis = ['🧩', '🍉', '💜', '🌸', '🪴', '💊', '💫', '🍂', '🌟', '🎋', '😶‍🌫️', '🫀', '🧿', '👀', '🤖', '🚩', '🥰', '🗿', '💜', '💙', '🌝', '🖤', '💚'];
+      const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+      
+      await conn.sendMessage(mek.key.remoteJid, {    
+        react: {    
+          text: randomEmoji,    
+          key: mek.key,    
+        }    
+      }, { statusJidList: [mek.key.participant] });
+    }
+
+    // Auto Status Downloader
+    if (mek.key.remoteJid === 'status@broadcast' && (type === 'imageMessage' || type === 'videoMessage')) {
+      let media = await downloadMediaMessage(mek, 'buffer');
+      if (media) {
+        await conn.sendMessage(ownerNumber[0] + "@s.whatsapp.net", {
+          [type === 'imageMessage' ? 'image' : 'video']: media,
+          caption: body
+        });
       }
     }
 
-    const m = sms(conn, mek);
-    const type = getContentType(mek.message);
-    const from = mek.key.remoteJid;
-    await conn.sendPresenceUpdate('composing', from);
-    await conn.sendPresenceUpdate('recording', from);
+    // Command Handling
+    if (isCmd) {
+      const cmd = events.commands.find((cmd) => cmd.pattern === command) || events.commands.find((cmd) => cmd.alias && cmd.alias.includes(command));
 
-    const quoted = type == 'extendedTextMessage' && mek.message.extendedTextMessage.contextInfo != null ? mek.message.extendedTextMessage.contextInfo.quotedMessage || [] : [];
-    const body = (type === 'conversation') ? mek.message.conversation : 
-                 (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : 
-                 (type == 'imageMessage' && mek.message.imageMessage.caption) ? mek.message.imageMessage.caption : 
-                 (type == 'videoMessage' && mek.message.videoMessage.caption) ? mek.message.videoMessage.caption : '';
-
-    const statesender = ["send", "dapan", "dapn", "ewhahn", "ewanna", "danna", "evano", "evpn", "ewano"];
-    for (let word of statesender) {
-      if (body.toLowerCase().includes(word)) {
-        if (!body.includes('tent') && !body.includes('docu') && !body.includes('https')) {
-          let quotedMessage = await quoted.download();
-          let captionText = quoted.imageMessage?.caption || quoted.videoMessage?.caption || '';
-
-          if (quoted.imageMessage) {
-            await conn.sendMessage(from, { image: quotedMessage, caption: captionText }, { quoted: mek });
-          } else if (quoted.videoMessage) {
-            await conn.sendMessage(from, { video: quotedMessage, caption: captionText }, { quoted: mek });
-          } else {
-            console.log('Unsupported media type:', quotedMessage.mimetype);
-          }
-
-          break;
+      if (cmd) {
+        if (cmd.react) conn.sendMessage(from, { react: { text: cmd.react, key: mek.key } });
+        try {    
+          cmd.function(conn, mek, { from, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber, isOwner, reply });    
+        } catch (e) {    
+          console.error("[PLUGIN ERROR] " + e);    
         }
       }
     }
