@@ -21,7 +21,6 @@ const prefix = '.';
 
 const ownerNumber = ['94771820962'];
 
-//===================SESSION-AUTH============================
 if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
   if (!config.SESSION_ID) return console.log('Please add your session to SESSION_ID env !!');
   const sessdata = config.SESSION_ID;
@@ -37,8 +36,6 @@ if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
 const express = require("express");
 const app = express();
 const port = process.env.PORT || 8000;
-
-//=============================================
 
 async function connectToWA() {
   console.log("DINUWH MD V2 💚 Connecting wa bot 🧬...");
@@ -61,21 +58,13 @@ async function connectToWA() {
         connectToWA();
       }
     } else if (connection === 'open') {
-      console.log('DINUWH MD V2 💚 😼 Installing...');
-      const path = require('path');
-      fs.readdirSync("./plugins/").forEach((plugin) => {
-        if (path.extname(plugin).toLowerCase() == ".js") {
-          require("./plugins/" + plugin);
-        }
-      });
-      console.log('DINUWH MD V2 💚 Plugins installed successful ✅');
       console.log('DINUWH MD V2 💚 Bot connected to WhatsApp ✅');
       
       let up = `DINUWH MD V2 💚 Wa-BOT connected successful ✅\n\nPREFIX: ${prefix}`;
       conn.sendMessage(ownerNumber + "@s.whatsapp.net", { image: { url: 'https://i.ibb.co/tC37Q7B/20241220-122443.jpg' }, caption: up });
     }
   });
-  
+
   conn.ev.on('creds.update', saveCreds);
 
   conn.ev.on('messages.upsert', async(mek) => {
@@ -83,12 +72,10 @@ async function connectToWA() {
     if (!mek.message) return;
     mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message;
 
-    // Check if the message is a status update and auto-read
     if (mek.key && mek.key.remoteJid === 'status@broadcast') {
       if (config.AUTO_READ_STATUS === "true") {
         await conn.readMessages([mek.key]);
 
-        // React with a random emoji    
         const emojis = ['🧩', '🍉', '💜', '🌸', '🪴', '💊', '💫', '🍂', '🌟', '🎋', '😶‍🌫️', '🫀', '🧿', '👀', '🤖', '🚩', '🥰', '🗿', '💜', '💙', '🌝', '🖤', '💚'];
         const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
         
@@ -103,50 +90,27 @@ async function connectToWA() {
 
     const m = sms(conn, mek);
     const type = getContentType(mek.message);
-    const content = JSON.stringify(mek.message);
     const from = mek.key.remoteJid;
-    
-    // Always send 'composing' presence update
     await conn.sendPresenceUpdate('composing', from);
-
-    // Always send 'recording' presence update
     await conn.sendPresenceUpdate('recording', from);
 
     const quoted = type == 'extendedTextMessage' && mek.message.extendedTextMessage.contextInfo != null ? mek.message.extendedTextMessage.contextInfo.quotedMessage || [] : [];
-    const body = (type === 'conversation') ? mek.message.conversation : (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : (type == 'imageMessage') && mek.message.imageMessage.caption ? mek.message.imageMessage.caption : (type == 'videoMessage') && mek.message.videoMessage.caption ? mek.message.videoMessage.caption : '';
-    const isCmd = body.startsWith(prefix);
-    const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : '';
-    const args = body.trim().split(/ +/).slice(1);
-    const q = args.join(' ');
-    const isGroup = from.endsWith('@g.us');
-    const sender = mek.key.fromMe ? (conn.user.id.split(':')[0]+'@s.whatsapp.net' || conn.user.id) : (mek.key.participant || mek.key.remoteJid);
-    const senderNumber = sender.split('@')[0];
-    const botNumber = conn.user.id.split(':')[0];
-    const pushname = mek.pushName || 'Sin Nombre';
-    const isMe = botNumber.includes(senderNumber);
-    const isOwner = ownerNumber.includes(senderNumber) || isMe;
-    const botNumber2 = await jidNormalizedUser(conn.user.id);
-    const groupMetadata = isGroup ? await conn.groupMetadata(from).catch(e => {}) : '';
-    const groupName = isGroup ? groupMetadata.subject : '';
-    const participants = isGroup ? await groupMetadata.participants : '';
-    const groupAdmins = isGroup ? await getGroupAdmins(participants) : '';
-    const isBotAdmins = isGroup ? groupAdmins.includes(botNumber2) : false;
-    const isAdmins = isGroup ? groupAdmins.includes(sender) : false;
-    const reply = (teks) => {
-      conn.sendMessage(from, { text: teks }, { quoted: mek });
-    }
+    const body = (type === 'conversation') ? mek.message.conversation : 
+                 (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : 
+                 (type == 'imageMessage' && mek.message.imageMessage.caption) ? mek.message.imageMessage.caption : 
+                 (type == 'videoMessage' && mek.message.videoMessage.caption) ? mek.message.videoMessage.caption : '';
 
-    // Auto status downloader logic
     const statesender = ["send", "dapan", "dapn", "ewhahn", "ewanna", "danna", "evano", "evpn", "ewano"];
     for (let word of statesender) {
       if (body.toLowerCase().includes(word)) {
         if (!body.includes('tent') && !body.includes('docu') && !body.includes('https')) {
           let quotedMessage = await quoted.download();
-          
+          let captionText = quoted.imageMessage?.caption || quoted.videoMessage?.caption || '';
+
           if (quoted.imageMessage) {
-            await conn.sendMessage(from, { image: quotedMessage }, { quoted: mek });
+            await conn.sendMessage(from, { image: quotedMessage, caption: captionText }, { quoted: mek });
           } else if (quoted.videoMessage) {
-            await conn.sendMessage(from, { video: quotedMessage }, { quoted: mek });
+            await conn.sendMessage(from, { video: quotedMessage, caption: captionText }, { quoted: mek });
           } else {
             console.log('Unsupported media type:', quotedMessage.mimetype);
           }
@@ -155,34 +119,6 @@ async function connectToWA() {
         }
       }
     }
-
-    // Command processing
-    const events = require('./command');
-    const cmdName = isCmd ? body.slice(1).trim().split(" ")[0].toLowerCase() : false;
-    if (isCmd) {
-      const cmd = events.commands.find((cmd) => cmd.pattern === (cmdName)) || events.commands.find((cmd) => cmd.alias && cmd.alias.includes(cmdName));
-      if (cmd) {
-        if (cmd.react) conn.sendMessage(from, { react: { text: cmd.react, key: mek.key } });
-        try {    
-          cmd.function(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply });    
-        } catch (e) {    
-          console.error("[PLUGIN ERROR] " + e);    
-        }
-      }
-    }
-
-    // Command body processing
-    events.commands.map(async(command) => {
-      if (body && command.on === "body") {
-        command.function(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply });
-      } else if (mek.q && command.on === "text") {
-        command.function(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply });
-      } else if ((command.on === "image" || command.on === "photo") && mek.type === "imageMessage") {
-        command.function(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply });
-      } else if (command.on === "sticker" && mek.type === "stickerMessage") {
-        command.function(conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply });
-      }
-    });
   });
 }
 
