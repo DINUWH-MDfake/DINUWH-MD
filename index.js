@@ -15,7 +15,6 @@ const P = require('pino')
 const config = require('./config')
 const qrcode = require('qrcode-terminal')
 const util = require('util')
-const { sms, downloadMediaMessage } = require('./DATABASE/msg')
 const axios = require('axios')
 const { File } = require('megajs')
 const prefix = config.PREFIX 
