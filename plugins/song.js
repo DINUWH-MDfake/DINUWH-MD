@@ -41,29 +41,58 @@ async (
     }
 ) => {
     try {
-        if (!quoted) return reply("❌ කරුණාකර **Message Reply** එකක් භාවිතා කරන්න!");
-
-        let replyCount = quoted.message.contextInfo?.quotedMessageCount || 1; // Get reply count
-        let qText = quoted.message?.conversation || quoted.message?.extendedTextMessage?.text;
-        if (!qText) return reply("❌ කරුණාකර **Valid Message** එකකට Reply කරන්න!");
+        if (!q) return reply("නමක් හරි ලින්ක් එකක් හරි දෙන්න 🌚❤️");
 
         // Search for the video  
-        const search = await yts(qText);
+        const search = await yts(q);
         if (!search.videos.length) return reply("❌ Video not found!");
 
         const data = search.videos[0];
         const url = data.url;
 
-        let desc = `🎧 *Now Playing...*  
-📌 *Title:*  ${data.title}  
-⏳ *Duration:*  ${data.timestamp}  
-📅 *Uploaded:*  ${data.ago}  
-👀 *Views:*  ${data.views}  
-🔗 *Listen Here:*  ${data.url}  
-⬇️ *Fetching & Downloading...*  
-🚀 *𝚖𝚊𝚔𝚎 𝚋𝚢 𝙳𝙸𝙽𝚄𝚆𝙷*`;
+        // Song metadata description  
+        let desc = `*⛶𝙳𝙸𝙽𝚄𝚆𝙷 𝙼𝙳 𝚂𝙾𝙽𝙶 𝙳𝙾𝚆𝙽𝙻𝙾𝙰𝙳𝙴𝚁⛶*
+✇━━━━━━━━━━━━━━━━━━━━✇
+⛛
+*╔═══◈ 🎧 Now Playing... ◈═══╗*
+*═════════════════════*
 
-        await robin.sendMessage(from, { text: desc }, { quoted: mek });
+*📌 Title:*  ${data.title}
+> ✇━━━━━━━━━━━━━━━━━━━
+*⏳ Duration:*  ${data.timestamp}
+> ✇━━━━━━━━━━━━━━━━━━━
+*📅 Uploaded:*  ${data.ago}
+> ✇━━━━━━━━━━━━━━━━━━━
+*👀 Views:*  ${data.views}
+> ✇━━━━━━━━━━━━━━━━━━━
+*🔗 Listen Here:*  ${data.url}
+> ✇━━━━━━━━━━━━━━━━━━━
+
+╠═════════════════════════╣
+*⬇️ Fetching & Downloading...*
+╚═════════════════════════╝
+
+> *🚀 𝚖𝚊𝚔𝚎 𝚋𝚢 𝙳𝙸𝙽𝚄𝚆𝙷*
+`;
+
+        // Send externalAdReply with views under channel name  
+        await robin.sendMessage(
+            from,
+            {
+                text: desc,
+                contextInfo: {
+                    externalAdReply: {
+                        title: "𝙳𝙸𝙽𝚄𝚆 𝙼𝙳 𝚃𝙴𝙲𝙷 𝙲𝙷𝙰𝙽𝙽𝙴𝙻",
+                        body: `👀 Views: ${data.views}`,
+                        thumbnail: { url: data.thumbnail },
+                        sourceUrl: "https://whatsapp.com/channel/0029Vat7xHl7NoZsrUVjN844",
+                        mediaType: 1,
+                        renderLargerThumbnail: true,
+                    },
+                },
+            },
+            { quoted: mek }
+        );
 
         // Download the audio using @vreden/youtube_scraper  
         const quality = "128"; // Default quality  
@@ -73,6 +102,7 @@ async (
             return reply("❌ Failed to download the song!");
         }
 
+        // Validate song duration (limit: 30 minutes)  
         let durationParts = data.timestamp.split(":").map(Number);
         let totalSeconds =
             durationParts.length === 3
@@ -83,37 +113,40 @@ async (
             return reply("⏱️ Audio limit is 30 minutes!");
         }
 
-        if (replyCount === 1) {
-            // **1️⃣ Send as Normal Audio File**  
-            await robin.sendMessage(
-                from,
-                { audio: { url: songData.download.url }, mimetype: "audio/mpeg" },
-                { quoted: mek }
-            );
-        } else if (replyCount === 2) {
-            // **2️⃣ Send as a Document**  
-            await robin.sendMessage(
-                from,
-                {
-                    document: { url: songData.download.url },
-                    mimetype: "audio/mpeg",
-                    fileName: `${data.title}.mp3`,
-                    caption: "𝐌𝐚𝐝𝐞 𝐛𝐲 𝐃𝐈𝐍𝐔𝐖𝐇 𝐌𝐃 ❤️",
-                },
-                { quoted: mek }
-            );
-        } else if (replyCount === 3) {
-            // **3️⃣ Send as a Voice Note (PTT)**
-            await robin.sendMessage(
-                from,
-                { audio: { url: songData.download.url }, mimetype: "audio/mpeg", ptt: true },
-                { quoted: mek }
-            );
-        } else {
-            return reply("❌ Reply Count **1-3** අතරින් විය යුතුයි!");
-        }
+        // **1️⃣ Send as Normal Audio File**  
+        await robin.sendMessage(
+            from,
+            {
+                audio: { url: songData.download.url },
+                mimetype: "audio/mpeg",
+            },
+            { quoted: mek }
+        );
 
-        return reply("*✅ Download complete! Enjoy your song!*");
+        // **2️⃣ Send as a Document**  
+        await robin.sendMessage(
+            from,
+            {
+                document: { url: songData.download.url },
+                mimetype: "audio/mpeg",
+                fileName: `${data.title}.mp3`,
+                caption: "𝐌𝐚𝐝𝐞 𝐛𝐲 𝐃𝐈𝐍𝐔𝐖𝐇 𝐌𝐃 ❤️",
+            },
+            { quoted: mek }
+        );
+
+        // **3️⃣ Send as a Voice Note (PTT)**
+        await robin.sendMessage(
+            from,
+            {
+                audio: { url: songData.download.url },
+                mimetype: "audio/mpeg",
+                ptt: true, // This makes it a voice note (PTT)
+            },
+            { quoted: mek }
+        );
+
+        return reply("*✅ Downloaded AUDIO/DOCUMENT/VOUCE-CLIP වලිම් ඔයාගෙ සින්දුව අප්ලෝඩ් වෙලා ඇති😐💗*");
 
     } catch (e) {
         console.error(e);
